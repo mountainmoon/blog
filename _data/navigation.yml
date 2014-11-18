@@ -1,7 +1,7 @@
 # Menu navigation links
 
-- title: Theme Setup
-  url: /theme-setup/
+- title: 项目
+  url: /project/
 
-- title: External Link
-  url: http://mademistakes.com
+- title: 订阅
+  url: /feed.xml
