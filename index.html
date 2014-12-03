@@ -22,7 +22,11 @@ image:
     {% endif %}
   </header>
   <div class="entry-content">
-    {{ post.content }}
+    {% if post.content contains site.user_excerpt_separator %}
+      {{ post.content | split:site.user_excerpt_separator | first }}
+    {% else %}
+      {{ post.excerpt }}
+    {% endif %}
   </div><!-- /.entry-content -->
 </article><!-- /.hentry -->
 {% endfor %}

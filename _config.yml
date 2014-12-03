@@ -4,8 +4,8 @@ disqus_shortname: mountainmoon
 reading_time:     false
 words_per_minute: 200
 # Your site's domain goes here (eg: //mmistakes.github.io, http://mademistakes.com, etc)
-# When testing locally leave blank or use http://localhost:4000
-url:              //mountainmoon.github.io/blog
+# When testing locally leave blank or use http://localhost:4000     //mountainmoon.github.io/blog
+url:
 
 # Owner/author information
 owner:
@@ -27,7 +27,14 @@ owner:
   google_plus:
 
 # Background image to be tiled on all pages
-background: 
+background:
+
+# added by yuekec
+# 2 constants for `abstract-#.jpg`
+imageCredit:     dargadgetz
+imageCreditlink: http://www.dargadgetz.com/ios-7-abstract-wallpaper-pack-for-iphone-5-and-ipod-touch-retina/
+# when add it to a post, the content before it would be extracted as a self-defined expcerpt in index.html
+user_excerpt_separator: <!--more-->
 
 # Analytics and webmaster tools stuff goes here
 google_analytics:   
