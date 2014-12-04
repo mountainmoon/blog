@@ -1,11 +1,13 @@
 ---
 layout: post
-title: angular.js源码剖析-1
+title: angular.js源码剖析(1)
 description: "analysis of angular.js source code"
 tags: [angular.js, javascript]
 image:
   feature: abstract-#.jpg
 ---
+
+从源码角度认识angular，深入理解angular的模块管理，依赖注入，指令，scope，以及重要对象的生存周期，了解angular源码文件的组织方式。
 
 angular.js文件在加载完毕后，会在一个立即执行函数中进行一些系列变量的定义（包括函数），将一个空对象作为angular赋给window，尝试绑定jQuery，将部分定义的变量扩展到angular对象上，最后在文档加载完毕后开始初始化angular app。
 代码结构大致为：
@@ -32,11 +34,10 @@ angular.js文件在加载完毕后，会在一个立即执行函数中进行一�
 
 <!--more-->
 
-angular在app启动的过程中，会载入相关module，对各个模块，注册相关的directive, controller, service等，以及执行config，run函数，待modules处理完毕后，会生成$rootScope，在$rootScope上对$apply进行首次调用，调用过程中compile app根节点，并调用返回的link函数，最后调用$digest，进入首个digest循环。
+app启动过程中，angular会载入相关模块，针对各个模块，注册相关的directive, controller, service等，以及执行config，run函数，待modules处理完毕后，会生成$rootScope，在$rootScope上对$apply进行首次调用，调用过程中compile app根节点，并调用返回的link函数，最后调用$digest，进入首个digest循环。
 
 可以看到，在这个过程中，包含了对angular很多重要对象的的处理，涉及到很多关键概念，因此，分析这个过程可以对angular是如何工作的，以及它的整个生命周期有深入的理解。下面的内容将围绕angular的启动过程而展开。
 
-Just how, no what, no why.
 
 ### 关于代码
 
@@ -76,9 +77,11 @@ var angularFiles = {
 }
 {% endhighlight %}
 
-angularSrc数组中所列出的文件，它们所包含的代码都是与ng模块（angular核心模块）相关的。根据api文档中的说法，angular.*所涵盖的这些方法、属性（不包括Object原型上的）都是属于ng模块的，
-但实际上，直接或间接使用angular.module方法来注册的api只有ng路径下的这些，它们要么是可注入的service，provider，要么是filter、directive。
-如果一个页面存在多个app根节点，ng模块会被多次处理，但赋给angular对象的方法却不会重复处理。angular.*这些方法有种被强行划到ng模块的感觉。。
+angularSrc数组中所列出的文件，它们所包含的代码都是与ng模块（angular核心模块）相关的，有些会作为angular的属性公开，有些会用来注册到ng模块，有些则用作内部使用。
+这些文件中的代码在合并到一起后，全部都处在最外层立即调用函数的作用域下，因此在外部不可见的情况下，同层代码之间可以互相调用。根据api文档中的说法，
+angular.\*所涵盖的这些方法、属性（不包括Object原型上的）都是属于ng模块的，但实际上，直接或间接使用angular.module方法来注册的api只有ng路径下的这些，
+它们要么是可注入的service，provider，要么是filter、directive。如果一个页面存在多个app根节点，ng模块会被多次处理，但赋给angular对象的方法却不会重复处理。
+angular.\*这些方法有种被强行划到ng模块的感觉。。
 
 
 ### angular对象和ng模块的初始化
@@ -155,12 +158,10 @@ function setupModuleLoader(window) {
 #### 注册ng模块
 
 定义完module方法后，立即就注册了ngLocale和ng模块。虽然ng模块依赖于ngLocale，但它们的注册顺序其实无关紧要，只要保证在以ng模块来创建injector之前，
-相关依赖模块已注册即可。具体在后面分析injector时解释。以ngLocale和ng模块为例来看下模块实例是如何被创建的。module大致如下：
+相关依赖模块已注册即可。具体在后面分析injector时解释。以ngLocale和ng模块为例来看下模块实例是如何被创建的。module方法的代码大致如下：
 {% highlight javascript %}
 function module(name, requires, configFn) {
-      if (requires && modules.hasOwnProperty(name)) {
-        modules[name] = null;
-      }
+      //..
       return ensure(modules, name, function() {
         var invokeQueue = [];
         var configBlocks = [];
@@ -205,16 +206,39 @@ function module(name, requires, configFn) {
 ngLocale是这样调用注册的，`angularModule('ngLocale', []).provider('$locale', $LocaleProvider);` 在module方法内部，会用对象字面量方式
 来构造一个module实例，也就是上面代码中的 `moduleInstance` ，这个对象会将调用时传入的第一个参数，这里是'ngLocale'，作为它的name属性，
 将第二个参数作为依赖传给属性requires，如果还有第3个实参，就会作为config来处理。module实例上还提供了一些熟知的方法，如controller，
-factory，provider，config，run等。这些方法都具有一种*共同的模式*，将传入的参数（函数，或包含注入信息和函数的数组）与方法相关的信息合在一块（run方法没有这些信息）保存到某个数组中，留待以后调用。
-这种只保存函数，暂时不调用的方式也为模块可以任意顺序注册提供了基础。对应不同的方法，一共有3种不同的数组。run 对应 runBlocks数组，config对应configBlocks数组，其他方法对应invokeQueue数组。
-这些数组还公开到moduleInstance上，在创建injector时会用到。可见，注册ngLocale时的 `.provider('$locale', $LocaleProvider)` 会把其中的参数信息保存到invokeQueue上。 ng模块也有类似的处理，
-不过最终要的是它的config参数，也将在创建injector时用到。
+factory，provider，config，run等。这些方法都具有一种**共同模式**，即把传入的参数（函数，或包含注入信息和函数的数组）与方法相关的信息合在一块（run方法没有这些信息）保存到某个数组中，留待以后调用。
+这种只保存函数，暂时不调用的方式也为模块可以任意顺序注册提供了基础。对应不同的方法，一共有3种不同的数组。run 对应 runBlocks数组，config 对应 configBlocks 数组，其他方法对应invokeQueue数组。
+这些数组还公开到moduleInstance上，在创建injector时会用到。
 
 在DOMContentLoaded事件触发前（或者是主动调用bootstrap前），angular对象以及ng模块的（部分）初始化就结束了。
 
 ### angularInit
 
 在DOMContentLoaded事件触发后，由最前面那段代码可知，angularInit函数会被调用， `angularInit(document, bootstrap);`.
+{% highlight javascript %}
+function angularInit(element, bootstrap) {
+  var appElement,
+      module,
+      config = {};
+
+  //为求简明，以下略有改动
+  if (element.hasAttribute && element.hasAttribute('ng-app')) {
+    appElement = element;
+  } else {
+    appElement = element.querySelector('[ng-app]')
+  }
+  module = appElement ? appElement.getAttribute(name) : undefined;
+
+  if (appElement) {
+    bootstrap(appElement, module ? [module] : [], config);
+  }
+}
+{% endhighlight %}
+
+这个方法使得 angular 可以自动寻找带ng-app特性的节点，并以此为app根节点来调用bootstrap方法。但有时候DOMContentLoaded的触发时机并不适合app启动，例如，
+使用第三方模块加载工具（requirejs或seajs等）来加载angular时，就要手动调用bootstrap方法了。
+
+后面可以看到在bootstrap方法中会通过创建一个injector来处理所有需要加载的模块，那些核心服务也会在那时被注册，并创建出相应实例，最后进行指令compile以及首次digest。
 
 
 
